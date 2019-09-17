@@ -111,7 +111,7 @@ case class ConstraintSystem(model:Store) extends Constraint with Objective{
         else Prod2(constr.violation(variable),weight)
       })
 
-      val LocalViolation = if (!product.isEmpty && product.tail.isEmpty) product.head
+      val LocalViolation = if (product.nonEmpty && product.tail.isEmpty) product.head
                             else Sum(product)
       variable.storeAt(IndexForLocalViolationINSU,LocalViolation)
     }

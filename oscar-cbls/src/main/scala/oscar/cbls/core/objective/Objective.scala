@@ -143,6 +143,20 @@ trait Objective {
    * @return the actual objective value.
    */
   def value:Int
+
+  /**
+    * Almost the same as value but should only be called when probing for the _new_
+    * objective value.
+    *
+    * Override this, for example, to log how many times the objective value has
+    * been probed (i.e., number of neighbours explored).
+    * Note that this cannot be done by using the value method, as that method is
+    * also used for stuff like "printing the current objective value".
+    *
+    * @return the objective value
+    */
+  def probe:Int = value
+
   def isZero:Boolean = value == 0
 
   /**returns the value of the objective variable if the two variables a and b were swapped values.
@@ -152,7 +166,7 @@ trait Objective {
     */
   def swapVal(a: CBLSIntVar, b: CBLSIntVar): Int = {
     a :=: b
-    val newVal = value
+    val newVal = probe
     a :=: b
     newVal
   }
@@ -176,7 +190,7 @@ trait Objective {
     //excurse
     for (assign <- a)
       assign._1 := assign._2
-    val newObj = value
+    val newObj = probe
     //undo
     for (assign <- oldvals)
       assign._1 := assign._2
@@ -190,7 +204,7 @@ trait Objective {
     */
   def insertValAssumeNotAlreadyIn(a: CBLSSetVar, i:Int): Int = {
     a :+= i
-    val newVal = value
+    val newVal = probe
     a :-= i
     newVal
   }
@@ -200,7 +214,7 @@ trait Objective {
     * @see registerForPartialPropagation() in [[oscar.cbls.core.computation.Store]]
     */
   def insertVal(a: CBLSSetVar, i:Int): Int = {
-    if(a.value.contains(i)) return value
+    if(a.value.contains(i)) return probe
     insertValAssumeNotAlreadyIn(a, i)
   }
 
@@ -210,7 +224,7 @@ trait Objective {
     */
   def removeValAssumeIn(a: CBLSSetVar, i:Int): Int = {
     a :-= i
-    val newVal = value
+    val newVal = probe
     a :+= i
     newVal
   }
@@ -220,7 +234,7 @@ trait Objective {
     * @see registerForPartialPropagation() in [[oscar.cbls.core.computation.Store]]
     */
   def removeVal(a: CBLSSetVar, i:Int): Int = {
-    if(!a.value.contains(i)) return value
+    if(!a.value.contains(i)) return probe
     removeValAssumeIn(a, i)
   }
 }

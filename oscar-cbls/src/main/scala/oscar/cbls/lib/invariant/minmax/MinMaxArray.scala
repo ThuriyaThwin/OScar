@@ -92,7 +92,7 @@ abstract class MiaxArray(vars: Array[IntValue], cond: SetValue, default: Int)
   extends IntInvariant(default) with Bulked[IntValue, Domain]
   with VaryingDependencies
   with IntNotificationTarget
-with SetNotificationTarget {
+with SetNotificationTarget{
 
   var keyForRemoval: Array[KeyForElementRemoval] = new Array(vars.length)
   var h: BinomialHeapWithMoveInt = new BinomialHeapWithMoveInt(i => Ord(vars(i)), vars.length, vars.length)
@@ -104,7 +104,7 @@ with SetNotificationTarget {
 
   /**
     * since the value of the bulkcomputationResult depends on the presence or absence of cond,
-    * we register two bcr, so that you can join the correct bulk whataver happens.
+    * we register two bcr, so that you can join the correct bulk whatever happens.
     */
   restrictDomain(bulkRegister(vars, if (cond == null) 0 else 1).union(default))
 
@@ -122,7 +122,7 @@ with SetNotificationTarget {
 
   finishInitialization()
 
-  override def performBulkComputation(bulkedVar: Array[IntValue]) = {
+  override def performBulkComputation(bulkedVar: Array[IntValue]):Domain = {
     val (min,max) = InvariantHelper.getMinMaxBounds(bulkedVar)
     DomainRange(min,max)
   }
