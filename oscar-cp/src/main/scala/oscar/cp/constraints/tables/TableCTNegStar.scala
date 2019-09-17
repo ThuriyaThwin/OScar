@@ -272,7 +272,6 @@ final class TableCTNegStar(X: Array[CPIntVar], table: Array[Array[Int]], star: I
     }
 
     val array = keepSet.toArray
-    println("preprocess time : " + (System.currentTimeMillis() - t))
     array
   }
 

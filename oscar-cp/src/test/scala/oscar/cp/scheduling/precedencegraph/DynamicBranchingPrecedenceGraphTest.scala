@@ -16,43 +16,28 @@ import scala.collection.mutable.ArrayBuffer
 class DynamicBranchingPrecedenceGraphTest extends FunSuite with Matchers with Assertions {
 
   test("Test 3 activities") {
-    val nTests = 1000
+    val nTests = 100
     testRandomInstances(nTests, 3, 3, 5, 15, 5, 20)
   }
 
   test("Test 4 activities") {
-    val nTests = 500
+    val nTests = 50
     testRandomInstances(nTests, 4, 4, 5, 15, 5, 20)
   }
 
   test("Test 4 activities 2 families") {
-    val nTests = 500
+    val nTests = 50
     testRandomInstances(nTests, 4, 2, 5, 15, 5, 20)
   }
 
   test("Test 5 activities") {
-    val nTests = 200
+    val nTests = 20
     testRandomInstances(nTests, 5, 5, 5, 15, 5, 20)
   }
 
   test("Test 6 activities") {
-    val nTests = 100
+    val nTests = 10
     testRandomInstances(nTests, 6, 6, 5, 15, 5, 20)
-  }
-
-  test("Test 7 activities") {
-    val nTests = 20
-    testRandomInstances(nTests, 7, 7, 5, 15, 5, 20)
-  }
-
-  test("Test 8 activities") {
-    val nTests = 5
-    testRandomInstances(nTests, 8, 8, 5, 15, 5, 20)
-  }
-
-  test("Test 10 activities") {
-    val nTests = 5
-    testRandomInstances(nTests, 8, 8, 5, 15, 5, 20)
   }
 
   def testRandomInstances(nTests: Int, nActivities : Int, nFamilies : Int, minDuration: Int, maxDuration: Int, minTT : Int, maxTT : Int) {

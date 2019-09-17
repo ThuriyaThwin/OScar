@@ -69,18 +69,6 @@ class PrecedenceGraphPropagatorTest extends FunSuite with Matchers with Assertio
     genericTest(6, 3, 10, minimization=true)
   }
 
-  test("Random instance of 8 activities") {
-    genericTest(8, 1, 10, minimization=true)
-  }
-
-  test("Random instance of 8 activities 2 families") {
-    genericTest(8, 2, 10, minimization=true)
-  }
-
-  test("Random instance of 8 activities 4 families") {
-    genericTest(8, 4, 10, minimization=true)
-  }
-
   def genericTest(nActivities: Int, nFamilies: Int, nRuns: Int, minimization: Boolean=false, printStats: Boolean=false, shouldRun: Boolean=true, testSols: Boolean=true, numSols: Int = Int.MaxValue) = {
     for(i <- 0 until nRuns) {
       val nMachines = 1

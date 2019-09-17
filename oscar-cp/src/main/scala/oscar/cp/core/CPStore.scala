@@ -25,7 +25,8 @@ import oscar.algo.vars.{IntVarLike, SetVarLike}
 import oscar.cp.core.variables.{CPBoolVar, CPIntVar, CPSetVar}
 import oscar.cp.core.watcher.PropagEventQueueVarSet
 
-import scala.collection.JavaConversions.{asJavaCollection, collectionAsScalaIterable}
+import scala.collection.JavaConverters._
+
 import scala.reflect.ClassTag
 import scala.util.Random
 
@@ -352,9 +353,9 @@ class CPStore(final val propagStrength: CPPropagStrength) extends DFSearchNode w
    * @param constraints
    * @return Failure if the fix point detects a failure that is one of the domain became empty, Suspend otherwise.
    */
-  def post(constraints: Collection[Constraint], st: CPPropagStrength): Unit = post(constraints.map(x => x.asInstanceOf[Constraint]).toArray, st)
+  def post(constraints: Collection[Constraint], st: CPPropagStrength): Unit = post(constraints.asScala.map(x => x.asInstanceOf[Constraint]).toArray, st)
 
-  def post(constraints: Collection[Constraint]): Unit = post(constraints.map(x => x.asInstanceOf[Constraint]), propagStrength)
+  def post(constraints: Collection[Constraint]): Unit = post(constraints.asScala.toArray.map(x => x.asInstanceOf[Constraint]), propagStrength)
 
   @inline
   def assign(x: IntVarLike, v: Int): Unit = assign(x.asInstanceOf[CPIntVar], v)
