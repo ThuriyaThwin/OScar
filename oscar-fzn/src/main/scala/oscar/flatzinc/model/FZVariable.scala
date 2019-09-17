@@ -40,10 +40,14 @@ abstract class Variable(val id: String, val anns: Iterable[oscar.flatzinc.model.
     cstrs = cstrs - c
     //cstrs = cstrs.filterNot(c.eq(_))//might be made more efficient if cstrs was a set.
   }
-  def domainSize: Int;
-  def isBound: Boolean;
-  def setDomain(range:Range);
-  def setDomain(s:Set[Int]);
+  def domainSize: Int
+  def isBound: Boolean
+  def setDomain(range:Range)
+  def setDomain(s:Set[Int])
+
+  private var _isSearchVar = false
+  def makeSearchVar = {_isSearchVar = true}
+  def isSearchVar = _isSearchVar
 }
 
 case class BooleanVariable(i: String,

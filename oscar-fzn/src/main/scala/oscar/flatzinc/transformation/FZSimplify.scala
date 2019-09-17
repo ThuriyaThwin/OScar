@@ -37,11 +37,15 @@ object FZSimplify{
         if(c.isInstanceOf[bool_clause]){
           log(2,"propagating "+c)
         }
-        val bef = c.variables.map(v => v.domainSize).fold(1)((a,b) => a * b)
-        propagate(c)
-        val aft = c.variables.map(v => v.domainSize).fold(1)((a,b) => a * b)
-        if(bef != aft){
-          log(2,"propagated "+c)
+        if(log.level >= 2){
+          val bef = c.variables.map(v => v.domainSize).fold(1)((a,b) => a * b)
+          propagate(c)
+          val aft = c.variables.map(v => v.domainSize).fold(1)((a,b) => a * b)
+          if(bef != aft){
+            log(2,"propagated "+c)
+          }
+        }else{
+          propagate(c)
         }
       }else{
     	propagate(c)
@@ -165,6 +169,10 @@ object FZSimplify{
       (a.value==c.value && b.min >= c.value) 
     case int_min(a,b,c,_) if b.isBound && c.isBound => 
       (b.value==c.value && a.min >= c.value)
+    case array_int_element(x,y,z,_) if x.isBound =>
+      z.isBound && z.value == y(x.value-1).value
+    case array_int_element(x,y,z,_) if z.isBound =>
+      x.domain.toSortedSet.subsetOf(y.zipWithIndex.filter {case (v,i) => v.value == z.value}.map {case(v,i) => i +1}.toSet)
     case int_lin_le(ps, xs, s, _) if s.isBound =>
       val r = ps.zip(xs).map(z => Math.max(z._1.value*z._2.min,z._1.value*z._2.max)).sum <= s.value
       r
@@ -175,35 +183,44 @@ object FZSimplify{
     case _ => false
   }
   
-  def isUnsatisfiable(c: Constraint) = if(isBound(c)){
-    c match {
-      case bool2int(x,y,_) => x.intValue!=y.value
-      case int_eq(x,y,_) => x.value !=y.value
-      case int_ne(x,y,_) => x.value ==y.value
-      case int_lt(x,y,_) => x.value >= y.value
-      case int_le(x,y,_) => x.value > y.value
-      case bool_eq(x,y,_) => x.intValue != y.intValue
-      case bool_lt(x,y,_) => x.intValue >= y.intValue
-      case bool_le(x,y,_) => x.intValue > y.intValue
-      case int_lin_eq(p,x,y,_) => p.zip(x).foldLeft(0)((acc,cur) => acc + cur._1.value*cur._2.value)!=y.value
-      case int_lin_le(p,x,y,_) => p.zip(x).foldLeft(0)((acc,cur) => acc + cur._1.value*cur._2.value)>y.value
-      case int_lin_ne(p,x,y,_) => p.zip(x).foldLeft(0)((acc,cur) => acc + cur._1.value*cur._2.value)==y.value
-      case bool_clause(x,y,_) => x.forall(_.isFalse) && y.forall(_.isTrue)
-      case set_in(x,y,_) => !y.contains(x.value)
-      case array_bool_and(x,y,_) => (x.exists(_.isFalse) && y.isTrue) || (x.forall(_.isTrue) && y.isFalse)
-      case array_bool_or(x,y,_) => (x.exists(_.isTrue) && y.isFalse) || (x.forall(_.isFalse) && y.isTrue)
-      case int_max(x,y,z,_) => x.value.max(y.value) != z .value
-      case int_min(x,y,z,_) => x.value.min(y.value) != z .value
-      case _ => false
+  def isUnsatisfiable(c: Constraint): Boolean = {
+    if (isBound(c)) {
+      c match {
+        case bool2int(x, y, _) => x.intValue != y.value
+        case int_eq(x, y, _) => x.value != y.value
+        case int_ne(x, y, _) => x.value == y.value
+        case int_lt(x, y, _) => x.value >= y.value
+        case int_le(x, y, _) => x.value > y.value
+        case bool_eq(x, y, _) => x.intValue != y.intValue
+        case bool_lt(x, y, _) => x.intValue >= y.intValue
+        case bool_le(x, y, _) => x.intValue > y.intValue
+        case int_lin_eq(p, x, y, _) => p.zip(x).foldLeft(0)((acc, cur) => acc + cur._1.value * cur._2.value) != y.value
+        case int_lin_le(p, x, y, _) => p.zip(x).foldLeft(0)((acc, cur) => acc + cur._1.value * cur._2.value) > y.value
+        case int_lin_ne(p, x, y, _) => p.zip(x).foldLeft(0)((acc, cur) => acc + cur._1.value * cur._2.value) == y.value
+        case bool_clause(x, y, _) => x.forall(_.isFalse) && y.forall(_.isTrue)
+        case set_in(x, y, _) => !y.contains(x.value)
+        case array_bool_and(x, y, _) => (x.exists(_.isFalse) && y.isTrue) || (x.forall(_.isTrue) && y.isFalse)
+        case array_bool_or(x, y, _) => (x.exists(_.isTrue) && y.isFalse) || (x.forall(_.isFalse) && y.isTrue)
+        case int_max(x, y, z, _) => x.value.max(y.value) != z.value
+        case int_min(x, y, z, _) => x.value.min(y.value) != z.value
+        case _ => false
+      }
+    } else {
+      c match {
+        case int_lt(x, y, _) => x.min >= y.max
+        case int_le(x, y, _) => x.min > y.max
+        case array_bool_and(x, y, _) => (x.exists(_.isFalse) && y.isTrue)
+        case array_bool_or(x, y, _) => (x.exists(_.isTrue) && y.isFalse)
+        case set_in(x, y, _) =>
+          x.domain match {
+            case FzDomainRange(mi, ma) =>
+              return (y.min > ma || y.max < mi)
+            case FzDomainSet(values) =>
+              values.intersect(y.toSortedSet).isEmpty
+          }
+        case _ => false
+      }
     }
-  }else c match{
-    case int_lt(x,y,_) => x.min >= y.max
-    case int_le(x,y,_) => x.min > y.max
-    case array_bool_and(x,y,_) => (x.exists(_.isFalse) && y.isTrue)
-    case array_bool_or(x,y,_) => (x.exists(_.isTrue) && y.isFalse)
-    case set_in(x,y,_) =>
-      x.domain.toSortedSet.forall(v => !y.contains(v))
-    case _ => false
   }
 
   def negate(c: Constraint): Constraint = { 
@@ -358,7 +375,8 @@ object FZSimplify{
         case int_abs(a,b,_) if a.isBound => b.bind(math.abs(a.value)); true
         case int_abs(a,b,_) if b.isBound => a.intersect(FzDomainSet(Set(b.value, -b.value))); true
         case array_int_element(x,y,z,_) if x.isBound => z.bind(y(x.value-1).value); true
-        case array_int_element(x,y,z,_) if z.isBound => x.intersect(FzDomainSet(y.zipWithIndex.filter {case (v,i) => v.value == z.value}.map {case(v,i) => i +1}.toSet)); true
+        case array_int_element(x,y,z,_) if z.isBound =>
+          x.intersect(FzDomainSet(y.zipWithIndex.filter {case (v,i) => v.value == z.value}.map {case(v,i) => i +1}.toSet)); true
         case bool_lt(x, y, _) => x.bind(false); y.bind(true); true
         //The cstrs below might need to be iterated until fixpoint... They should be removed if we use CP.
         case int_le(x, y, _ ) => y.geq(x.min); x.leq(y.max); true
@@ -495,7 +513,8 @@ object FZSimplify{
         case int_abs(a,b,_) if a.isBound => b.bind(math.abs(a.value)); false
         case int_abs(a,b,_) if b.isBound => a.intersect(FzDomainSet(Set(b.value, -b.value))); false
         case array_int_element(x,y,z,_) if x.isBound => z.bind(y(x.value-1).value); false
-        case array_int_element(x,y,z,_) if z.isBound => x.intersect(FzDomainSet(y.zipWithIndex.filter {case (v,i) => v.value == z.value}.map {case(v,i) => i +1}.toSet)); false
+        case array_int_element(x,y,z,_) if z.isBound =>
+          x.intersect(FzDomainSet(y.zipWithIndex.filter {case (v,i) => v.value == z.value}.map {case(v,i) => i +1}.toSet)); false
         case bool_lt(x, y, _) => x.bind(false); y.bind(true); false
         //The cstrs below might need to be iterated until fixpoint... They should be removed if we use CP.
         case int_le(x, y, _ ) => y.geq(x.min); x.leq(y.max); true

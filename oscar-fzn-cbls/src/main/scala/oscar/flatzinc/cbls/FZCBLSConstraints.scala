@@ -41,7 +41,7 @@ import oscar.flatzinc.cbls.support.Helpers.FznChangingIntValue
 
 
 
-class FZCBLSConstraintPoster(val c: ConstraintSystem, implicit val getCBLSVar: Variable => IntValue) {
+class FZCBLSConstraintPoster(val c: ConstraintSystem, implicit val getCBLSVar: Variable => IntValue, suppressMissingConstraints:Boolean = false) {
   val m: Store = c.model   
   
   /*def get_count_eq(xs:Array[Variable], y: Variable, cnt:Variable, ann: List[Annotation])(implicit c: ConstraintSystem, cblsIntMap: MMap[String, CBLSIntVarDom]) = {
@@ -56,7 +56,8 @@ class FZCBLSConstraintPoster(val c: ConstraintSystem, implicit val getCBLSVar: V
     AllDiff(xs.map(getCBLSVar(_)))
   }
   
-  def get_cumulative(s: Array[IntegerVariable], d: Array[IntegerVariable],r: Array[IntegerVariable],b: IntegerVariable, ann: List[Annotation]) = {
+  def get_cumulative(s: Array[IntegerVariable], d: Array[IntegerVariable],
+                     r: Array[IntegerVariable], b: IntegerVariable, ann: List[Annotation]) = {
     val disjunctive = r.forall(v => 2*v.min > b.max) 
     val fixedduration = d.forall(v => v.isBound)
     val unitduration = d.forall(v => v.isBound && v.value==1)
@@ -107,7 +108,7 @@ class FZCBLSConstraintPoster(val c: ConstraintSystem, implicit val getCBLSVar: V
         }
       }
       val cumul = CumulativeNoSet(ns,d.map(getCBLSVar(_)),r.map(getCBLSVar(_)),p);
-      GE(b,MaxArray(p.asInstanceOf[Array[IntValue]]))//TODO: What we should actually do is to create the array in CumulativeNoSet
+      GE(b,MaxArray(p.asInstanceOf[Array[IntValue]], default = 0))//TODO: What we should actually do is to create the array in CumulativeNoSet
       //TODO: The following class may have some bugs
       //CumulativePrototype(ns,d.map(getIntValue(_)),r.map(getIntValue(_)),getIntValue(b));
     }
@@ -175,8 +176,12 @@ class FZCBLSConstraintPoster(val c: ConstraintSystem, implicit val getCBLSVar: V
     if(as.exists(_.isTrue) || bs.exists(_.isFalse)){
       System.err.println("% Redundant variable in bool_clause")
     }
-
-    BoolLE(if(as.length == 1) as.head else Or(as.map(getCBLSVar(_))),
+    if(as.length == 0){
+      BoolEQ(Not(And(bs.map(getCBLSVar(_)))),0)
+    } else if(bs.length == 0){
+      BoolEQ(Or(as.map(getCBLSVar(_))),0)
+    }else
+      BoolLE(if(as.length == 1) as.head else Or(as.map(getCBLSVar(_))),
            if(bs.length == 1) bs.head else And(bs.map(getCBLSVar(_))))
   }
 
@@ -268,7 +273,6 @@ class FZCBLSConstraintPoster(val c: ConstraintSystem, implicit val getCBLSVar: V
   }
 
   def get_int_lin_gt(params: Array[IntegerVariable], vars: Array[IntegerVariable], sum: IntegerVariable, ann: List[Annotation]) = {
-    //LE(new Sum(vars.zip(params).map{ case (v,p) => Prod2(getIntValue(v),p.value)}), sum)
     G(new Linear(vars.map(getCBLSVar(_)),params.map(_.value)), sum)
   }
 
@@ -351,10 +355,10 @@ class FZCBLSConstraintPoster(val c: ConstraintSystem, implicit val getCBLSVar: V
   }
   
   def get_maximum_inv(x: Array[IntegerVariable], ann: List[Annotation]) = {
-    MaxArray(x.map(getCBLSVar(_)))
+    MaxArray(x.map(getCBLSVar(_)), default = x.map(getCBLSVar(_).min).min)
   }
   def get_minimum_inv(x: Array[IntegerVariable], ann: List[Annotation]) = {
-    MinArray(x.map(getCBLSVar(_)))
+    MinArray(x.map(getCBLSVar(_)), default = x.map(getCBLSVar(_).max).max)
   }
   
   def get_inverse(xs: Array[IntegerVariable], ys:Array[IntegerVariable]) = {
@@ -429,7 +433,19 @@ class FZCBLSConstraintPoster(val c: ConstraintSystem, implicit val getCBLSVar: V
        //TODO: Might be more efficient...
        val dc = DenseCount.makeDenseCount(xs.map(getCBLSVar(_)));
        val counts = dc.counts
-       val eqs = vs.toList.zip(cnts).map(_ match {case (v,c) => EQ(c,counts(v.min+dc.offset))})//TODO: +offset or -offset? seems to be +
+  
+       val eqs = vs.toList.zip(cnts).map(_ match {
+         case (v,c) => {
+           EQ(c, counts(v.min+dc.offset))
+         }
+       })
+       
+
+//       val eqs = cnts.indices.map(i => EQ(cnts(i), counts(i+dc.offset))).toList
+      /* val eqs = vs.toList.zip(cnts).map(_ match {
+                                           case (v,c) => EQ(c,counts(v.min+dc.offset))
+                                         })//TODO: +offset or -offset? seems to be +
+                                         */
        if(closed) domains(xs,vs.map(_.min)) ++ eqs else eqs
      }
   }
@@ -527,7 +543,7 @@ class FZCBLSConstraintPoster(val c: ConstraintSystem, implicit val getCBLSVar: V
       case bin_packing_load(load,bin,w,ann)           => get_bin_packing_load(load,bin,w,ann)
       case table_int(xs,ts, ann)                      => get_table_int(xs,ts,ann)
       case table_bool(xs,ts, ann)                     => get_table_bool(xs,ts,ann)
-      case notimplemented                             => throw new NoSuchConstraintException(notimplemented.toString(),"CBLS Solver");
+      case notimplemented                             => if (suppressMissingConstraints) {System.err.println(s"${notimplemented.toString()} is not implemented in CBLS solver, continuing anyway."); EQ(1,1)} else throw new NoSuchConstraintException(notimplemented.toString(),"CBLS Solver");
     }
   }
 

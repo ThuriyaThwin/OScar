@@ -57,7 +57,13 @@ class FZProblem {
     variable
   }
 
-  
+  def getDefiningVariables(v:Variable): Set[Variable] = {
+    if(v.isDefined){
+      v.definingConstraint.get.getVariables().toSet.filterNot(_ == v).flatMap(getDefiningVariables(_))
+    }else{
+      Set(v)
+    }
+  }
 
   
   def satisfy(anns:Iterable[Annotation]) {
@@ -73,6 +79,11 @@ class FZProblem {
     search.obj = Objective.MAXIMIZE
     search.variable = Some(obj)
     search.setHeuristic(anns)
+  }
+
+  var searchVars = List.empty[Variable]
+  def setSearchVars(vars:List[Variable]) = {
+    searchVars = vars
   }
 
   

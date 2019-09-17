@@ -54,7 +54,7 @@ class FZCBLSImplicitConstraints(val cblsmodel:FZCBLSModel) {
     def tryAllDiff(xs: Array[IntegerVariable]):Boolean = {
       if(allOK(xs,true)){
         val vars = xs.map(cblsmodel.getCBLSVar(_))
-        cblsmodel.addNeighbourhood((o,c) => new AllDifferent(vars, o,c),vars)
+        cblsmodel.addNeighbourhood((o,c) => new AllDifferent(vars, c),vars)
         true
       }else false
     }
@@ -63,7 +63,7 @@ class FZCBLSImplicitConstraints(val cblsmodel:FZCBLSModel) {
       if(allOK(xs,true) && allOK(invXs,true) && intersection.length == 0){
         val xsVars = xs.map(cblsmodel.getCBLSVar(_))
         val invVars = invXs.map(cblsmodel.getCBLSVar(_))
-        cblsmodel.addNeighbourhood((o,c) => new Inverse(xsVars, invVars, o,c,-1,xs,invXs,cblsmodel),xsVars++invVars)
+        cblsmodel.addNeighbourhood((o,c) => new Inverse(xsVars, invVars, c,-1, xs, invXs,cblsmodel),xsVars++invVars)
         true
       }else false
     }
@@ -84,7 +84,7 @@ class FZCBLSImplicitConstraints(val cblsmodel:FZCBLSModel) {
           }
           avar
         }
-        cblsmodel.addNeighbourhood((o,c) => new ThreeOpt(vars,o,c,1),vars)
+        cblsmodel.addNeighbourhood((o,c) => new ThreeOpt(vars,c,1),vars)
         true
       }else{
         false
@@ -107,7 +107,7 @@ class FZCBLSImplicitConstraints(val cblsmodel:FZCBLSModel) {
           }
           avar
         }
-        cblsmodel.addNeighbourhood((o,c) => new ThreeOptSub(vars,o,c,1),vars)
+        cblsmodel.addNeighbourhood((o,c) => new ThreeOptSub(vars,c,1),vars)
         true
       }else{
         println("BOF")
@@ -120,7 +120,7 @@ class FZCBLSImplicitConstraints(val cblsmodel:FZCBLSModel) {
     def tryGCC(xs: Array[IntegerVariable],vals: Array[IntegerVariable], cnts: Array[IntegerVariable],closed: Boolean):Boolean ={
       if (allOK(xs) && cnts.forall(c => c.isBound)){//Only for fixed count variables for now
         val vars = xs.map(cblsmodel.getCBLSVar(_))
-        cblsmodel.addNeighbourhood((o,c) => new GCCNeighborhood(vars,vals.map(_.min),cnts.map(_.min),cnts.map(_.max),closed,o,c),vars)
+        cblsmodel.addNeighbourhood((o,c) => new GCCNeighborhood(vars,vals.map(_.min),cnts.map(_.min),cnts.map(_.max),closed,c),vars)
         true
       }else{
         false
@@ -129,16 +129,16 @@ class FZCBLSImplicitConstraints(val cblsmodel:FZCBLSModel) {
     def tryGCClu(xs: Array[IntegerVariable],vals: Array[IntegerVariable], low: Array[IntegerVariable],up: Array[IntegerVariable],closed: Boolean):Boolean ={
       if (allOK(xs)){ //TODO: Something is not working here
         val vars = xs.map(cblsmodel.getCBLSVar(_))
-        cblsmodel.addNeighbourhood((o,c) => new GCCNeighborhood(vars,vals.map(_.min),low.map(_.min),up.map(_.max),closed,o,c),vars)
+        cblsmodel.addNeighbourhood((o,c) => new GCCNeighborhood(vars,vals.map(_.min),low.map(_.min),up.map(_.max),closed,c),vars)
         true
       }else{
         false
       }
     }
   def trySum(xs: Array[IntegerVariable], coeffs: Array[IntegerVariable],sum:IntegerVariable): Boolean = {
-      if (allOK(xs) && coeffs.forall(x => x.min == 1 || x.min == -1)) {
+      if (allOK(xs) && coeffs.forall(x => x.min == 1 || x.min == -1) && xs.forall( x => x.domain.isInstanceOf[FzDomainRange])) {
         val vars = xs.map(cblsmodel.getCBLSVar(_))
-        cblsmodel.addNeighbourhood((o,c) => new SumNeighborhood(vars,coeffs.map(_.min),sum.min,o,c),vars)
+        cblsmodel.addNeighbourhood((o,c) => new SumNeighborhood(vars,coeffs.map(_.min),sum.min,c),vars)
         true
       }else{
         false
@@ -147,7 +147,7 @@ class FZCBLSImplicitConstraints(val cblsmodel:FZCBLSModel) {
   def trySum(xs: Array[BooleanVariable], coeffs: Array[IntegerVariable],sum:IntegerVariable): Boolean = {
    if (allOK(xs) && coeffs.forall(x => x.min == 1 || x.min == -1)) {
         val vars = xs.map(cblsmodel.getCBLSVar(_))
-        cblsmodel.addNeighbourhood((o,c) => new SumNeighborhood(vars,coeffs.map(_.min),sum.min,o,c),vars)
+        cblsmodel.addNeighbourhood((o,c) => new SumNeighborhood(vars,coeffs.map(_.min),sum.min,c),vars)
         true
       }else{
         false

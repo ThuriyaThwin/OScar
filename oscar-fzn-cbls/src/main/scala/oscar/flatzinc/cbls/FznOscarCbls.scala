@@ -33,8 +33,9 @@ object FznOscarCbls extends FznOscarMain {
           override def run() {
             if(builder.finalSearchControl.isDefined &&
               builder.finalSearchControl.get.foundSolution){
-              builder.finalSearchControl.get.restoreBestSolution()
-              builder.finalSearchControl.get.forcePrintCurrentAssignment
+              builder.finalSearchControl.get.printBestSolution()
+//              builder.finalSearchControl.get.restoreBestSolution()
+//              builder.finalSearchControl.get.forcePrintCurrentAssignment
             }
           }
         })

@@ -19,7 +19,7 @@ package oscar.flatzinc.parser
 
 import java.lang.reflect.Constructor
 
-import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
 import scala.collection.mutable.WrappedArray
 import oscar.flatzinc.{Log, NoSuchConstraintException, NoSuchMoveException, ParsingException}
 import oscar.flatzinc.model._
@@ -48,37 +48,50 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
 
 
   def buildModel(m: ASTModel) = {
-    for (p <- m.getParamDecls.asScala) {
+    for (p <- m.getParamDecls) {
       addParam(p)
     }
-    for (v <- m.getVarDecls.asScala) {
+    for (v <- m.getVarDecls) {
       addVar(v)
     }
-    for (c <- m.getConstraints.asScala) {
+    for (c <- m.getConstraints) {
       addConstraint(c)
     }
 
-    for (f <- m.getFuncDecls.asScala) {
+    for (f <- m.getFuncDecls) {
       addFunc(f)
     }
 
     m.getSolve.getType match {
       case ASTSolve.SAT =>
-        setSATObjective(getAnnotations(m.getSolve.getAnns.asScala.toList))
+        setSATObjective(getAnnotations(m.getSolve.getAnns.toList))
       case ASTSolve.MAX =>
-        setMAXObjective(m.getSolve.getExpr, getAnnotations(m.getSolve.getAnns.asScala.toList))
+        setMAXObjective(m.getSolve.getExpr, getAnnotations(m.getSolve.getAnns.toList))
       case ASTSolve.MIN =>
-        setMINObjective(m.getSolve.getExpr, getAnnotations(m.getSolve.getAnns.asScala.toList))
+        setMINObjective(m.getSolve.getExpr, getAnnotations(m.getSolve.getAnns.toList))
     }
 
-    m.getSolve.getAnns.asScala.foreach((lit: ASTLit) =>
+    m.getSolve.getAnns.foreach((lit: ASTLit) =>
                                  lit match {
                                    case ann: ASTAnnotation if ann.getId.getValue == "use_neighborhood" =>
                                      val argArray = ann.getArgs.get(0).asInstanceOf[ASTArray]
-                                     for (a <- argArray.getElems.asScala) {
+                                     for (a <- argArray.getElems) {
                                        addNeighbourhood(a)
                                      }
-                                   case notused => log(1, "Ignoring annotation: " + notused)
+                                   case ann: ASTAnnotation if ann.getId.getValue == "search_variables" =>
+                                     val searchVarArray = ann.getArgs.get(0) match {
+                                       case id:ASTId =>
+                                         declDict(id.getValue).getExpr.asInstanceOf[ASTArray]
+                                       case a:ASTArray =>
+                                         a
+                                     }
+                                     //println(searchVarArray)
+                                     for(v <- searchVarArray.getElems if v.isInstanceOf[ASTId])
+                                       varDict(v.asInstanceOf[ASTId].getValue).makeSearchVar
+                                     problem.setSearchVars(
+                                       searchVarArray.getElems.filter(_.isInstanceOf[ASTId]).map(v =>
+                                                                     varDict(v.asInstanceOf[ASTId].getValue)).toList)
+                                   case notUsed => log(1, "Ignoring annotation: " + notUsed)
                                  }
     )
   }
@@ -94,7 +107,7 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
     //TODO: Handle annotations on params (output vals)
     declDict(decl.getId.getValue) = decl
     if (decl.getAnns != null) {
-      handleOutputAnnotations(decl.getName,decl, getAnnotations(decl.getAnns.asScala.toList))
+      handleOutputAnnotations(decl.getName,decl, getAnnotations(decl.getAnns.toList))
     }
     decl.getName
   }
@@ -105,13 +118,13 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
       val aliasDecl = declDict(alias.getValue)
       declDict(decl.getId.getValue) = aliasDecl
       if (decl.getAnns != null) {
-        handleOutputAnnotations(decl.getName, aliasDecl, getAnnotations(decl.getAnns.asScala.toList))
+        handleOutputAnnotations(decl.getName, aliasDecl, getAnnotations(decl.getAnns.toList))
       }
       alias.getValue
     }else {
       declDict(decl.getId.getValue) = decl
       if (decl.getAnns != null) {
-        handleOutputAnnotations(decl.getName, decl, getAnnotations(decl.getAnns.asScala.toList))
+        handleOutputAnnotations(decl.getName, decl, getAnnotations(decl.getAnns.toList))
       }
 
       if (!decl.getType.isInstanceOf[ASTArrayType]) {
@@ -135,9 +148,9 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
     //Constraints are added to the FZProblem as soon as they are created.
     val name = c.getId.getValue
     val args = c.getArgs
-    val anns = getAnnotations(c.getAnns.asScala.toList)
+    val anns = getAnnotations(c.getAnns.toList)
 
-    val cstr = constructConstraint(name, args.asScala.toList, anns)
+    val cstr = constructConstraint(name, args.toList, anns)
 
     setDefinedVar(cstr)
 
@@ -169,7 +182,7 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
     decl.getType match {
       case arr: ASTArrayType =>
         if (anns.exists((a: Annotation) => a.name == "output_array")) {
-          val idArray = decl.getExpr.asInstanceOf[ASTArray].getElems.asScala.map((lit: ASTLit) => lit match {
+          val idArray = decl.getExpr.asInstanceOf[ASTArray].getElems.map((lit: ASTLit) => lit match {
             case id: ASTId => id.getValue
             case constInt: ASTInt => constInt.getValue.toString
             case constBool: ASTBool => constBool.getValue.toString
@@ -211,7 +224,7 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
   def getVariablesFor(lit: ASTLit): Array[Variable] = {
     lit match {
       case id: ASTId => getVariablesFor(id.getValue)
-      case arr: ASTArray => arr.getElems.asScala.toList.map((a: ASTLit) => getVar(a)).toArray
+      case arr: ASTArray => arr.getElems.toList.map((a: ASTLit) => getVar(a)).toArray
     }
   }
 
@@ -289,7 +302,7 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
         getBoolVarArray(declDict(id.getValue).getExpr)
       case arr: ASTArray =>
         val a = arr.asInstanceOf[ASTArray]
-        a.getElems.asScala.map((v: ASTLit) => getBoolVar(v)).toArray
+        a.getElems.map((v: ASTLit) => getBoolVar(v)).toArray
       case err => throw new ParsingException("Expected a array of var int but got: " + err)
     }
   }
@@ -302,7 +315,7 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
       case id: ASTId =>
         getIntVarArray(declDict(id.getValue).getExpr)
       case arr: ASTArray =>
-        val array = arr.getElems.asScala.map(v => getIntVar(v)).toArray
+        val array = arr.getElems.map(v => getIntVar(v)).toArray
         val wrap = genericWrapArray(array)
         if (knownarrays.contains(wrap)) {
           //Console.err.println("% reuse "+knownarrays.size +" "+ knownarrays(wrap).mkString("[",", ","]"))
@@ -319,7 +332,7 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
   def getIntSet(lit: ASTLit): FzDomain = {
     if (lit.isInstanceOf[ASTSet]) {
       val s = lit.asInstanceOf[ASTSet];
-      new FzDomainSet(s.getSet.asScala.toSet.map((i: ASTInt) => Int.unbox(i.getValue)))
+      new FzDomainSet(s.getSet.toSet.map((i: ASTInt) => Int.unbox(i.getValue)))
     } else if (lit.isInstanceOf[ASTRange]){
       val r = lit.asInstanceOf[ASTRange];
       new FzDomainRange(r.getLb.getValue, r.getUb.getValue)
@@ -441,7 +454,7 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
       (Array.empty[Variable], List.empty[Constraint])
     }
 
-    val fromNeighourhoods = decl.getArgs.get(0).asInstanceOf[ASTArray].getElems.asScala.toList.asInstanceOf[List[ASTAnnotation]]
+    val fromNeighourhoods = decl.getArgs.get(0).asInstanceOf[ASTArray].getElems.toList.asInstanceOf[List[ASTAnnotation]]
 
     problem.addNeighbourhood(
       new FZNeighbourhood(lit.toString,
@@ -455,7 +468,7 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
     val from = funcDict(id.getValue).getBody
 
     //It variables
-    val (iteratorVariables, whereExpr) = from.getBody.asScala.partition((p: ASTNode) =>
+    val (iteratorVariables, whereExpr) = from.getBody.partition((p: ASTNode) =>
                                                                   p.isInstanceOf[ASTVarDecl] &&
                                                                     p.asInstanceOf[ASTVarDecl].hasAnnotation(
                                                                       "defines_generator"))
@@ -465,17 +478,17 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
 
     val wVars = whereVars.toList.asInstanceOf[List[ASTDecl]].map((d: ASTDecl) => addDecl(d))
     val wCons = whereConstr.toList.asInstanceOf[List[ASTConstraint]].map(
-      (c: ASTConstraint) => constructConstraint(c.getId.getValue, c.getArgs.asScala.toList, getAnnotations(c.getAnns.asScala.toList)))
+      (c: ASTConstraint) => constructConstraint(c.getId.getValue, c.getArgs.toList, getAnnotations(c.getAnns.toList)))
     wCons.foreach(c => setDefinedVar(c))
 
-    val in = from.getReturnValue.asInstanceOf[ASTAnnotation].getArgs.get(0).asInstanceOf[ASTArray].getElems.asScala.toList
+    val in = from.getReturnValue.asInstanceOf[ASTAnnotation].getArgs.get(0).asInstanceOf[ASTArray].getElems.toList
     val (ensureAnn, moveAnnotations) = in.partition(
       p => p.isInstanceOf[ASTAnnotation] && p.asInstanceOf[ASTAnnotation].getId.getValue.equals("ensuring"))
 
     val moves = moveAnnotations.map(
       m => getMove(m.asInstanceOf[ASTAnnotation])) //getAnnotations(moveAnnotations.asInstanceOf[List[ASTAnnotation]])
 
-    val ensureCall = ensureAnn.head.asInstanceOf[ASTAnnotation].getArgs.get(0).asInstanceOf[ASTAnnotation]
+    val ensureCall = ensureAnn.get(0).asInstanceOf[ASTAnnotation].getArgs.get(0).asInstanceOf[ASTAnnotation]
     val (eVars, eCons) = getVarsAndConstraintsInFunction(ensureCall)
     eCons.foreach(c => setDefinedVar(c))
 
@@ -506,11 +519,11 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
 
   private def getVarsAndConstraintsInFunction(call: ASTAnnotation): (Array[Variable], List[Constraint]) = {
     val funBody = funcDict(call.getId.getValue).getBody.getBody
-    val (constraints, variables) = funBody.asScala.partition((p: ASTNode) => p.isInstanceOf[ASTConstraint])
+    val (constraints, variables) = funBody.partition((p: ASTNode) => p.isInstanceOf[ASTConstraint])
 
     val vars = variables.toList.asInstanceOf[List[ASTDecl]].map((d: ASTDecl) => addDecl(d))
     val cons = constraints.toList.asInstanceOf[List[ASTConstraint]].map(
-      (c: ASTConstraint) => constructConstraint(c.getId.getValue, c.getArgs.asScala.toList, getAnnotations(c.getAnns.asScala.toList)))
+      (c: ASTConstraint) => constructConstraint(c.getId.getValue, c.getArgs.toList, getAnnotations(c.getAnns.toList)))
     (vars.toArray.foldLeft(Array.empty[Variable])((acc, id) => getVariablesFor(id) ++ acc), cons)
   }
 
@@ -539,12 +552,12 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
             getSetDomain(d)
           case noDomain => new FzDomainRange(Helper.FznMinInt, Helper.FznMaxInt) //TODO: This is dangerous!
         }
-        val tmp = new IntegerVariable(v.getName, dom, getAnnotations(v.getAnns.asScala.toList))
+        val tmp = new IntegerVariable(v.getName, dom, getAnnotations(v.getAnns.toList))
         varDict(v.getName) = tmp;
         tmp
 
       case ASTConstants.BOOL =>
-        val tmp = new BooleanVariable(v.getName, FzDomainRange(0, 1), getAnnotations(v.getAnns.asScala.toList))
+        val tmp = new BooleanVariable(v.getName, FzDomainRange(0, 1), getAnnotations(v.getAnns.toList))
         varDict(v.getName) = tmp;
         tmp
     }
@@ -561,7 +574,7 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
   }
 
   private def getSetDomain(d: ASTSet): FzDomainSet = {
-    val s = d.getSet.asScala.toSet.map((i: ASTInt) => Int.unbox(i.getValue))
+    val s = d.getSet.toSet.map((i: ASTInt) => Int.unbox(i.getValue))
     FzDomainSet(s)
   }
 
@@ -579,9 +592,9 @@ class Model(val log: Log, val acceptAnyCstr: Boolean) {
       case b: ASTBool => b.getValue
       case s: ASTString => s.getValue
       case r: ASTRange => getRange(r)
-      case arr: ASTArray => arr.getElems.asScala.map(transformAnnotation(_)).toList
+      case arr: ASTArray => arr.getElems.map(transformAnnotation(_)).toList
       case a: ASTAnnotation =>
-        val args = a.getArgs.asScala.map(a => transformAnnotation(a))
+        val args = a.getArgs.map(a => transformAnnotation(a))
         new Annotation(a.getId.getValue, args.toList)
     }
   }

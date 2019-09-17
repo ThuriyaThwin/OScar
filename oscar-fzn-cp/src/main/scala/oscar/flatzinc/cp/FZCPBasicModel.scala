@@ -17,8 +17,8 @@
 
 package oscar.flatzinc.cp
 
+import oscar.algo.search.DFSearchNode
 import oscar.cp._
-
 import oscar.flatzinc.model.Constraint
 
 import scala.collection.mutable.{Map => MMap}
@@ -31,17 +31,17 @@ import oscar.flatzinc.model._
   */
 class FZCPBasicModel(val pstrength: oscar.cp.core.CPPropagStrength = oscar.cp.Medium, val ignoreUnkownConstraints: Boolean = false) {
 
-  def printVars() = {
+  def printVars(): Unit = {
     println(dictVars.mkString("\n"))
   }
 
   implicit val solver: CPSolver = CPSolver(pstrength)
   solver.silent = true
-  val poster = new CPConstraintPoster(pstrength);
+  val poster = new CPConstraintPoster(pstrength)
   // TODO: Is there a danger in mapping Variable to CPIntVar as oppose to String
   // What happens when something goes wrong?
-  val dictVars = MMap.empty[Variable,CPIntVar]
-  val solutionMap = MMap.empty[Variable,Int]
+  val dictVars: MMap[Variable, CPIntVar] = MMap.empty[Variable,CPIntVar]
+  val solutionMap: MMap[Variable, Int] = MMap.empty[Variable,Int]
 
   def getIntVar(v:Variable):CPIntVar = {
     dictVars.get(v) match {
@@ -50,7 +50,7 @@ class FZCPBasicModel(val pstrength: oscar.cp.core.CPPropagStrength = oscar.cp.Me
           case v:IntegerVariable => CPIntVar(v.value);
           case v:BooleanVariable => CPBoolVar(v.boolValue);
         }
-        dictVars += v -> c;
+        dictVars += v -> c
         c
       case Some(c) => c;
 
@@ -62,7 +62,7 @@ class FZCPBasicModel(val pstrength: oscar.cp.core.CPPropagStrength = oscar.cp.Me
         val c = v match{
           case v:BooleanVariable => CPBoolVar(v.boolValue);
         }
-        dictVars += v -> c;
+        dictVars += v -> c
         c
       case Some(c) => c.asInstanceOf[CPBoolVar];
     }
@@ -70,12 +70,12 @@ class FZCPBasicModel(val pstrength: oscar.cp.core.CPPropagStrength = oscar.cp.Me
   def createVariables(variables: Iterable[Variable]){
     for(v <- variables){
       dictVars(v) = v match{
-        case bv:BooleanVariable if bv.isTrue => CPBoolVar(true)
-        case bv:BooleanVariable if bv.isFalse => CPBoolVar(false)
-        case bv:BooleanVariable => CPBoolVar()
+        case bv:BooleanVariable if bv.isTrue => CPBoolVar(b = true)
+        case bv:BooleanVariable if bv.isFalse => CPBoolVar(b = false)
+        case _:BooleanVariable => CPBoolVar()
         case iv:IntegerVariable => iv.domain match{
           case FzDomainRange(min, max) => CPIntVar(min, max)
-          case FzDomainSet(v) => CPIntVar(v)
+          case FzDomainSet(s) => CPIntVar(s)
           case _ => throw new RuntimeException("unknown domain")
         }
       }
@@ -89,7 +89,7 @@ class FZCPBasicModel(val pstrength: oscar.cp.core.CPPropagStrength = oscar.cp.Me
         val cons = poster.getConstraint(c,getIntVar,getBoolVar)
         add(cons)
       }catch{
-        case e: scala.MatchError if ignoreUnkownConstraints => Console.err.println("% ignoring in CP: "+c)
+        case _: scala.MatchError if ignoreUnkownConstraints => Console.err.println("% ignoring in CP: "+c)
       }
     }
 
@@ -122,12 +122,12 @@ class FZCPBasicModel(val pstrength: oscar.cp.core.CPPropagStrength = oscar.cp.Me
     getBoolVar(v).getMax
   }
 
-  def createDefaultSearch() = {
+  def createDefaultSearch(): DFSearchNode = {
     //TODO: Take into account the search annotations
     solver.search(oscar.cp.binaryLastConflict(dictVars.values.toArray))
   }
 
-  def createRandomSearch() = {
+  def createRandomSearch(): DFSearchNode = {
     //TODO: Take into account the search annotations
     val searchVars = dictVars.values.toArray
     solver.search(oscar.cp.conflictOrderingSearch(searchVars, searchVars(_).size, searchVars(_).randomValue))
@@ -151,9 +151,9 @@ class FZCPBasicModel(val pstrength: oscar.cp.core.CPPropagStrength = oscar.cp.Me
         println("% No solution found")
       return (false, MMap.empty)
     }
-    return (true, solutionMap)
+    (true, solutionMap)
   }
 
-  def push() = solver.pushState()
-  def pop() = solver.pop()
+  def push(): Unit = solver.pushState()
+  def pop(): Unit = solver.pop()
 }

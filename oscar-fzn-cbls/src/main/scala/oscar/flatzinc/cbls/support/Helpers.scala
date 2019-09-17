@@ -37,8 +37,8 @@ object Helpers {
 
     /**
       * Intersect the domain of a ChangingIntValue with d.
-      * If the current value of the ChangingIntValue is outside the resulting domain,
-      * then it is reassigned to a random value in the domain.
+      * If the current value of the ChangingIntValue is outside the new domain,
+      * then it is reassigned to a random value in the new domain.
       * @param d Domain to intersect with
       */
 
@@ -50,6 +50,9 @@ object Helpers {
         c.setValue(d.iterator.drop(rndIdx).next)
       }
       c.restrictDomain(d)
+      if(c.isControlledVariable && !c.inDomain(c.newValue)){
+        System.err.println("% Warning: reduced domain of controlled variable resulted in current value outside domain.")
+      }
     }
 
     /**
@@ -76,6 +79,7 @@ class CBLSBoolVar(model: Store, initialValue: Int, initialDomain:Domain, n: Stri
     else
       this := 1-v
 }
+
 
 //TODO: Should not extend it anymore!
 //Need the store while it extends CBLSIntVar, as sometimes it is requested (e.g., to find the Model in some invariants)

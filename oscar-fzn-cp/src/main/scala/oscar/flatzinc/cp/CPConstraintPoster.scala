@@ -24,7 +24,7 @@ import oscar.cp._
 import oscar.cp.constraints.SumLeEq
 import oscar.cp.core.CPPropagStrength
 
-class CPConstraintPoster(val pstrength: oscar.cp.core.CPPropagStrength){ 
+class CPConstraintPoster(val pstrength: oscar.cp.core.CPPropagStrength){
   implicit def c2ca(c: oscar.cp.Constraint): Array[(oscar.cp.Constraint,oscar.cp.core.CPPropagStrength)] = Array[(oscar.cp.Constraint,oscar.cp.core.CPPropagStrength)]((c,pstrength))
   implicit def c2cs(c: oscar.cp.Constraint): (oscar.cp.Constraint,oscar.cp.core.CPPropagStrength)= (c,pstrength)
   implicit def c2ca(c: (oscar.cp.Constraint,oscar.cp.core.CPPropagStrength)): Array[(oscar.cp.Constraint,oscar.cp.core.CPPropagStrength)] = Array[(oscar.cp.Constraint,oscar.cp.core.CPPropagStrength)](c)
@@ -38,11 +38,11 @@ class CPConstraintPoster(val pstrength: oscar.cp.core.CPPropagStrength){
       //TODO: We create variables in cumulative but we might want to memoize those as well!
       //TODO: Actually to avoid creating new variables, we could rewrite the cumulative in the minizinc definition to create those variables while flattening, and CSE will take care of it.
       case cumulative(s,d,r,capa,_) => oscar.cp.maxCumulativeResource(s.map(getVar), d.map(getVar), s.zip(d).map(vv => getVar(vv._1)+getVar(vv._2)), r.map(getVar), getVar(capa))
-      case maximum_int(x,y,_) => 
+      case maximum_int(x,y,_) =>
         c2ca(oscar.cp.maximum(y.map(getVar), getVar(x))) ++ ca2cs(y.map(v => getVar(v) <= getVar(x)))
-      case minimum_int(x,y,_) => 
+      case minimum_int(x,y,_) =>
         c2ca(oscar.cp.minimum(y.map(getVar), getVar(x))) ++ ca2cs(y.map(v => getVar(v) >= getVar(x)))
-     
+
       case all_different_int(x,_) => (oscar.cp.allDifferent(x.map(getVar)), Medium)//Weak, Strong, Medium
       case at_least_int(c,x,v,_) => oscar.cp.atLeast(c.value, x.map(getVar), v.value)
       case at_most_int(c,x,v,_) => oscar.cp.atMost(c.value, x.map(getVar), v.value)
@@ -94,11 +94,11 @@ class CPConstraintPoster(val pstrength: oscar.cp.core.CPPropagStrength){
       case nvalue_int(y, xs, ann)                     => new oscar.cp.constraints.AtLeastNValue(xs.map(getVar), getVar(y))
 
       //case reif(count_eq(x,v,c,_),b) => getBoolVar(b) ?== oscar.cp.countEq(getVar(c), x.map(getVar), getVar(v))
-      
+
       case array_bool_and(as, r, ann)                 => new oscar.cp.constraints.And(as.map(getBoolVar),getBoolVar(r))
-     // case array_bool_element(b, as, r, ann)          => 
+     // case array_bool_element(b, as, r, ann)          =>
       case array_bool_or(as, r, ann)                  => oscar.cp.or(as.map(getBoolVar),getBoolVar(r))
-     // case array_bool_xor(as, ann)                    => 
+     // case array_bool_xor(as, ann)                    =>
       case array_int_element(b, as, r, ann)           => oscar.cp.element(as.map(_.value), getVar(b)-1, getVar(r))
       case array_var_bool_element(b, as, r, ann)      => oscar.cp.elementVar(as.map(getBoolVar), getVar(b)-1, getBoolVar(r))
       case array_var_int_element(b, as, r, ann)       => oscar.cp.elementVar(as.map(getVar), getVar(b)-1, getVar(r))
@@ -119,7 +119,8 @@ class CPConstraintPoster(val pstrength: oscar.cp.core.CPPropagStrength){
       case bool_xor(a, b, r, ann)                     => getBoolVar(r) === (getVar(a) ?!== getVar(b))
 
       case int_abs(x, y, ann)                         => new oscar.cp.constraints.Abs(getVar(x), getVar(y))
-      case int_div(x, y, z, ann) if y.max == y.min    => (getVar(x)-(getVar(x) mod y.max)) === getVar(z)*y.max
+      case int_div(x, y, z, ann) if y.max == y.min    =>
+        new oscar.cp.constraints.Div(getVar(x),y.max,getVar(z))
       case int_eq(x, y, ann)                          => getVar(x) === getVar(y)
       case int_le(x, y, ann)                          => getVar(x) <= getVar(y)
       case int_lt(x, y, ann)                          => getVar(x) < getVar(y)
@@ -129,35 +130,72 @@ class CPConstraintPoster(val pstrength: oscar.cp.core.CPPropagStrength){
       case reif(int_ne(x,y,ann),b)                    => getBoolVar(b) === (getVar(x) ?!== getVar(y))
 
       // TODO: Handle binary and ternary cases, as well as all unit weights
+
+      // Special case of only two variables and fixed sum
+      case int_lin_eq(params, vars, sum, ann) if params.length == 2 && sum.isBound  => {
+        val lhs = oscar.cp.mul(getVar(vars(0)),params(0).value)
+        val rhs = (oscar.cp.mul(getVar(vars(1)),-params(1).value) + sum.value)
+        lhs === rhs
+      }
+
       case int_lin_eq(params, vars, sum, ann)         => {
+        //weightedSum(params.map(_.value), vars.map(getVar), getVar(sum))
         val weightedVars = params.map(_.value).zip(vars.map(getVar)).map( v => if (v._1 == 1) v._2 else oscar.cp.mul(v._2,v._1))
         oscar.cp.sum(weightedVars, getVar(sum))
-        //oscar.cp.weightedSum(params.map(_.value), vars.map(getVar), getVar(sum))
       }
+        // Special case of only two variables and fixed sum
+      case int_lin_le(params, vars, sum, ann) if params.length == 2 && sum.isBound  => {
+        val lhs = oscar.cp.mul(getVar(vars(0)),params(0).value)
+        val rhs = (oscar.cp.mul(getVar(vars(1)),-params(1).value) + sum.value)
+        lhs <= rhs
+      }
+
       case int_lin_le(params, vars, sum, ann)         => {
         val weightedVars = params.map(_.value).zip(vars.map(getVar)).map( v => if (v._1 == 1) v._2 else oscar.cp.mul(v._2,v._1))
         new SumLeEq(weightedVars, getVar(sum))
         //oscar.cp.weightedSum(params.map(_.value), vars.map(getVar)) <= getVar(sum) //TODO: make it native
       }
+
+      case int_lin_gt(params, vars, sum, ann)         => {
+        val weightedVars = params.map(_.value).zip(vars.map(getVar)).map( v => if (v._1 == 1) v._2 else oscar.cp.mul(v._2,v._1))
+        oscar.cp.sum(weightedVars) > getVar(sum)
+      }
       case int_lin_ne(params, vars, sum, ann)         => oscar.cp.weightedSum(params.map(_.value), vars.map(getVar)) !== getVar(sum) //TODO: make it native
 
-      case reif(int_lin_eq(params, vars, sum, ann),b) => getBoolVar(b) === (oscar.cp.weightedSum(params.map(_.value), vars.map(getVar)) ?=== getVar(sum)) //TODO: make it native
-      case reif(int_lin_le(params, vars, sum, ann),b) => getBoolVar(b) === (oscar.cp.weightedSum(params.map(_.value), vars.map(getVar)) ?<= getVar(sum)) //TODO: make it native
-      case reif(int_lin_ne(params, vars, sum, ann),b) => getBoolVar(b) === (oscar.cp.weightedSum(params.map(_.value), vars.map(getVar)) ?!== getVar(sum)) //TODO: make it native
+      case reif(int_lin_eq(params, vars, sum, ann),b) => {
+        val weightedVars = params.map(_.value).zip(vars.map(getVar)).map( v => if (v._1 == 1) v._2 else oscar.cp.mul(v._2,v._1))
+        getBoolVar(b) === (oscar.cp.sum(weightedVars) ?=== getVar(sum))
+      }
+
+      case reif(int_lin_le(params, vars, sum, ann),b) if params.length == 2 && sum.isBound  => {
+        val lhs = oscar.cp.mul(getVar(vars(0)),params(0).value)
+        val rhs = (oscar.cp.mul(getVar(vars(1)),-params(1).value) + sum.value)
+        getBoolVar(b) === (lhs ?<= rhs)
+      }
+
+      case reif(int_lin_le(params, vars, sum, ann),b) => {
+        val weightedVars = params.map(_.value).zip(vars.map(getVar)).map( v => if (v._1 == 1) v._2 else oscar.cp.mul(v._2,v._1))
+        getBoolVar(b) === (oscar.cp.sum(weightedVars) ?<= getVar(sum))
+      }
+
+      case reif(int_lin_ne(params, vars, sum, ann),b) => {
+        val weightedVars = params.map(_.value).zip(vars.map(getVar)).map( v => if (v._1 == 1) v._2 else oscar.cp.mul(v._2,v._1))
+        getBoolVar(b) === (oscar.cp.sum(weightedVars) ?!== getVar(sum))
+      }
       case int_max(x, y, z, ann)                      => oscar.cp.maximum(Array(getVar(x),getVar(y)),getVar(z))
       case int_min(x, y, z, ann)                      => oscar.cp.minimum(Array(getVar(x),getVar(y)),getVar(z))
       case int_mod(x, y, z, ann) if y.isBound         => getVar(x) % y.value == getVar(z)
       case int_ne(x, y, ann)                          => getVar(x) !== getVar(y)
-      case int_plus(x, y, z, ann)                     => oscar.cp.plus(getVar(x), getVar(y)) === getVar(z)
-      case int_times(x, y, z, ann)                    => oscar.cp.mul(getVar(x), getVar(y)) === getVar(z)
+      case int_plus(x, y, z, ann)                     => new oscar.cp.constraints.BinarySum(getVar(x), getVar(y),getVar(z))
+      case int_times(x, y, z, ann)                    => new oscar.cp.constraints.MulVar(getVar(x), getVar(y), getVar(z))
       case set_in(x, s, ann)                          => new oscar.cp.constraints.InSet(getVar(x),s.toSortedSet)
       case reif(set_in(x, s, ann),b)                  => new oscar.cp.constraints.InSetReif(getVar(x),s.toSortedSet,getBoolVar(b))
       case table_int(xs,ts,ann)                       => oscar.cp.table(xs.map(getVar(_)), Array.tabulate(ts.size/xs.size)(row => Array.tabulate(xs.size)(i => ts(row*xs.size + i).value)))
-      case default => Console.err.println("% Could not perform initial domain reduction using " + default)
+      case default => Console.err.println("% Warning: Could not perform initial domain reduction using " + default)
         Array.empty
-    } 
+    }
   }
-  
-  
+
+
 }
-  
+

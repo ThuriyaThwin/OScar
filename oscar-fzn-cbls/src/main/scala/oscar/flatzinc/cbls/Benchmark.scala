@@ -42,8 +42,8 @@ object Benchmark extends App{
 
       val solutions = new FZCBLSBuilder().solve(opts)
 /*
-      for ((runtime, objective, iteration, solution) <- solutions) {
-        pw.println("Runtime: " + runtime + " Objective: " + objective + " Iterations: " + iteration)
+      for ((runtime, objectiveFun, iteration, solution) <- solutions) {
+        pw.println("Runtime: " + runtime + " Objective: " + objectiveFun + " Iterations: " + iteration)
         pw.println(solution);
       }
       if (solutions.length == 1) {
