@@ -18,16 +18,24 @@
  */
 package oscar.flatzinc.transformation
 
-import oscar.flatzinc.model._
 import oscar.flatzinc.Log
-import scala.collection.mutable.{ Map => MMap, Set => MSet }
-import scala.collection.mutable.Queue
-import oscar.flatzinc.UnsatException
+import oscar.flatzinc.model._
+
+import scala.collection.mutable
+import scala.collection.mutable.{Queue, Map => MMap, Set => MSet}
 
 object FZFindDefined {
   
   def findInvariants(model: FZProblem, log:Log, searchVars: Iterable[Variable]):Unit = {
     val mysearchVars = searchVars.toSet
+    
+    //Make sure that no search var is defined
+    mysearchVars.foreach{
+      case v:Variable if v.isDefined =>
+        v.definingConstraint.get.unsetDefinedVar(v)
+      case _ =>
+    }
+    
     findInvariantsFromObjective(model,log,mysearchVars)//Start from the objective and reach as far as possible.
     findInvariants(model,log,0,mysearchVars)//First only constraints that are directional by nature
     findInvariants(model,log,1,mysearchVars)//Then all of them
@@ -74,16 +82,16 @@ object FZFindDefined {
         }
       }
       if(v.isDefined){
-        v.definingConstraint.get.getVariables().foreach(vv =>
+        v.definingConstraint.get.getVariables.foreach(vv =>
           if(!visited.contains(vv) && !vv.isBound) {
             visited.add(vv)
             front.enqueue((vv,v.definingConstraint.get,Objective.SATISFY))
           })
       }
-      if(front.isEmpty && !front2.isEmpty){
+      if(front.isEmpty && front2.nonEmpty){
         first = false
         front = front2
-        front2 = Queue.empty[(Variable,Constraint,Objective.Value)]
+        front2 = mutable.Queue.empty[(Variable,Constraint,Objective.Value)]
       }
     }
     log(1,"Found "+cnt+" new invariants from the objective.")
@@ -102,7 +110,7 @@ object FZFindDefined {
     }
   }
   
-  private def findInvariants(model: FZProblem, log:Log,step:Int, searchVars: Set[Variable]) = {
+  private def findInvariants(model: FZProblem, log:Log,step:Int, searchVars: Set[Variable]): Unit = {
     //Find all free variables of the model.
     val freeVariables: List[Variable] =
       model.variables.toList.filter((variable: Variable) =>
@@ -139,15 +147,15 @@ object FZFindDefined {
         log(2,"! Found a variable that could be defined by more than one invariant:"+v+" "+cand2.toString)
       }
       //Select the first suitable constraint with smallest number of variables (heuristic for Costas Array, might not work for others, actually a proxy for the smallest resulting output domain)
-      if(!cand2.isEmpty){
+      if(cand2.nonEmpty){
         //log(cand2.toString)
-        cand2.minBy(c => c.getVariables().length).setDefinedVar(v)
+        cand2.minBy(c => c.getVariables.length).setDefinedVar(v)
       }
       
     }
   }
   def dependsOn(c: Constraint, v: Variable,test: Boolean = true): Boolean = {
-    c.getVariables().exists(w => if (w.isDefined) c.definedVar!= Some(w) && dependsOn(w.definingConstraint.get,v) 
+    c.getVariables.exists(w => if (w.isDefined) !c.definedVar.contains(w) && dependsOn(w.definingConstraint.get, v)
                                  else test && w == v)
   }
 
@@ -157,27 +165,27 @@ object FZFindDefined {
   
   def getSortedInvariants(invariants: List[Constraint])(implicit log: Log): (List[Constraint],List[Constraint]) = {
     //val invariants = inv;
-    var sorted = List.empty[Constraint];
+    var sorted = List.empty[Constraint]
     //mapping maps each constraint to the number of defined variables the constraint depends on.
-    val mapping = MMap.empty[Constraint, Int];
+    val mapping = MMap.empty[Constraint, Int]
     var heads = List.empty[Constraint]
     var removed = List.empty[Constraint]
-    var sortedend = List.empty[Constraint];
+    var sortedend = List.empty[Constraint]
     for (i <- invariants) {
-      mapping += i -> i.getVariables.toSet.filter((v) => v.isDefined && (v.definingConstraint.get != i)).size;
+      mapping += i -> i.getVariables.toSet.count(v => v.isDefined && (v.definingConstraint.get != i))
       if(mapping(i)==0){
-        heads = i :: heads;
+        heads = i :: heads
         mapping.remove(i)
       }
     }
-    val mappingB = MMap.empty[Constraint, Int];
+    val mappingB = MMap.empty[Constraint, Int]
     var tails = List.empty[Constraint]
     for(i <- mapping.keys){
-      mappingB += i -> i.definedVar.get.cstrs.filter((c) => c!=i && c.definedVar.isDefined && mapping.contains(c)).size
+      mappingB += i -> i.definedVar.get.cstrs.count(c => c != i && c.definedVar.isDefined && mapping.contains(c))
       
     }
-    def explore() = {
-      while (!heads.isEmpty) {
+    def explore(): Unit = {
+      while (heads.nonEmpty) {
         val k = heads.head
         heads = heads.tail
         sorted = k::sorted
@@ -186,21 +194,21 @@ object FZFindDefined {
           if(mapping.contains(j) ){
             mapping(j) = mapping(j)-1
             if(mapping(j)==0){
-              heads = j :: heads;
+              heads = j :: heads
               mapping.remove(j)
             }
           }
         }
       }
     }
-    def exploreBackward() = {
+    def exploreBackward(): Unit = {
       for(i <- mappingB.keys){
         if(mappingB(i)==0){
-          tails = i :: tails;
-          mappingB.remove(i);
+          tails = i :: tails
+          mappingB.remove(i)
         }
       }
-      while(!tails.isEmpty){
+      while(tails.nonEmpty){
         val k = tails.head
         tails = tails.tail
         sortedend = k :: sortedend
@@ -221,14 +229,14 @@ object FZFindDefined {
     }
     explore()
     exploreBackward()
-    if(!mapping.isEmpty){
+    if(mapping.nonEmpty){
       log("There is a cycle in the set of invariants! "+mapping.size)
       //print(mapping.mkString("\n"))
     }
-    while(!mapping.isEmpty){
+    while(mapping.nonEmpty){
       val remc = mapping.keys.minBy(c =>
                                       (c.definedVar.get.domainSize,
-                                        if (c.annotations.length>0) 1 else 0,
+                                        if (c.annotations.nonEmpty) 1 else 0,
                                         -mapping(c),
                                         -mappingB(c)))//foldLeft((null.asInstanceOf[Constraint],Int.MinValue))((best,cur) => {val curval = - cur.definedVar.get.domainSize/*mapping(cur)*//*cur.definedVar.get.cstrs.filter(c => c!=cur && mapping.contains(c) && mapping(c)==1).length*/; if(curval > best._2) (cur,curval) else best;});
       mapping.remove(remc)
@@ -256,6 +264,6 @@ object FZFindDefined {
     }
     log("Had to remove "+removed.length+" invariants to be acyclic.")
     //println((sorted.reverse++sortedend).map(_.definedVar.get))
-    return (sorted.reverse++sortedend,removed);
+    (sorted.reverse++sortedend,removed)
   }
 }

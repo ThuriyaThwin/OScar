@@ -17,27 +17,17 @@
  */
 package oscar.flatzinc.parser
 
-import oscar.flatzinc.model.FZProblem
-
-import scala.collection.JavaConversions._
-import scala.collection.mutable.{Map, Set => MSet}
-import oscar.flatzinc.parser.intermediatemodel._
-import oscar.flatzinc.model.Annotation
-
-import scala.collection.JavaConverters._
-import java.util.ArrayList
-
-import oscar.flatzinc.model.FZProblem
-import oscar.flatzinc.model._
-import oscar.flatzinc.NoSuchConstraintException
 import java.lang.reflect.Constructor
 
-import oscar.flatzinc.ParsingException
-import oscar.flatzinc.Log
+import oscar.flatzinc.{Log, NoSuchConstraintException, ParsingException}
+import oscar.flatzinc.model.{Annotation, FZProblem, _}
 import oscar.flatzinc.parser.intermediatemodel.ASTDecls.{ASTParamDecl, ASTVarDecl}
 import oscar.flatzinc.parser.intermediatemodel.ASTLiterals._
+import oscar.flatzinc.parser.intermediatemodel._
 
-import scala.collection.mutable.WrappedArray
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
+import scala.collection.mutable.{Map, WrappedArray}
 
 
 
@@ -157,7 +147,7 @@ class OldModel(val log: Log, val acceptAnyCstr: Boolean) {
       if(e.domain==null)e.domain = d
       else e.domain.intersect(d)
     }*/
-    //if(!anns.equals(e.annotations)) System.out.println("% Not the same annotations: "+e.annotations+" vs "+anns);
+    //if(!completeStrategy.equals(e.annotations)) System.out.println("% Not the same annotations: "+e.annotations+" vs "+completeStrategy);
     addId(name,e);
     handleVarAnnotations(name, e, anns.asScala)
   }

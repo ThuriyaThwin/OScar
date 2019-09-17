@@ -17,14 +17,11 @@
   */
 package oscar.flatzinc.model
 
-import oscar.flatzinc.parser.Model
-import java.io.PrintStream
-import oscar.flatzinc.parser.intermediatemodel.Element
-import oscar.flatzinc.parser.intermediatemodel.ArrayOfElement
-import scala.collection.JavaConverters._
 import java.util.ArrayList
-import oscar.flatzinc.parser.intermediatemodel.Type
-import java.io.PrintWriter
+
+import oscar.flatzinc.parser.intermediatemodel.{ArrayOfElement, Element}
+
+import scala.collection.JavaConverters._
 
 object FlatZincPrinter {
 
@@ -63,7 +60,7 @@ object FlatZincPrinter {
   */
 
   def toFZN(s: Search): String = {
-    "solve " + toFZNann(s.getHeuristic()) + " " + {
+    "solve " + s.getSearchStrategy.map(_.toFznString).mkString(" ::") + " " + {
       s.obj match {
         case Objective.SATISFY => "satisfy"
         case Objective.MAXIMIZE => "maximize " + s.variable.get.id

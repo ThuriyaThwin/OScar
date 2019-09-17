@@ -17,12 +17,10 @@ package oscar.cp.modeling
 
 import oscar.algo.branchings._
 import oscar.algo.search.{Branching, BranchingUtils, DiscrepancyBranching}
-import oscar.cp.scheduling.search.SetTimesBranching
-import oscar.cp.scheduling.search.RankBranching
-import oscar.cp.core.variables.CPIntVar
-import oscar.cp.core.variables.CPSetVar
 import oscar.algo.vars.{IntVarLike, SetVarLike}
 import oscar.cp._
+import oscar.cp.core.variables.{CPIntVar, CPSetVar}
+import oscar.cp.scheduling.search.{RankBranching, SetTimesBranching}
 import oscar.cp.searches.WeightedDegreeHelper
 
 /**
@@ -163,6 +161,14 @@ trait Branchings extends BranchingUtils {
     */
   def binaryLastConflict[T](variables: Array[CPIntVar], varHeuristic: (Int => T), valHeuristic: (Int => Int))(implicit orderer: T => Ordered[T]): Branching = {
     new BinaryLastConflict[T](variables.asInstanceOf[Array[IntVarLike]], varHeuristic, valHeuristic, orderer)
+  }
+  
+  def binaryLastConflictPhaseSaving(variables: Array[CPIntVar]): Branching = {
+    binaryLastConflictPhaseSaving(variables, variables(_).size, variables(_).min)
+  }
+  
+  def binaryLastConflictPhaseSaving(variables: Array[CPIntVar], varHeuristic: (Int => Int), valHeuristic: (Int => Int)): Branching = {
+    new LCSearchSimplePhaseAssign(variables.asInstanceOf[Array[IntVarLike]], varHeuristic, valHeuristic)
   }
 
   /**

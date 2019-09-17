@@ -42,7 +42,7 @@ public class Div extends Constraint {
     private int v;
 
     /**
-     * Creates a modulo constraint x % v = y
+     * Creates a div constraint x div v = y
      * @param x
      * @param v a value > 0
      * @param y

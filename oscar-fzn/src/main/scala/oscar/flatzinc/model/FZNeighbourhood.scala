@@ -26,22 +26,21 @@ class FZNeighbourhood(val name: String,
                       val initVariables: Seq[Variable],
                       val initConstraints: Seq[Constraint]) {
 
-  private val controlledVariables = subNeighbourhoods.foldLeft(initVariables)(
-    (acc, n) => acc ++ n.getControlledVariables).distinct
+  private val controlledVariables = subNeighbourhoods.flatMap(_.getControlledAndDeclaredVariables).distinct.toArray
 
   def getControlledVariables: Array[Variable] = {
-    controlledVariables.toArray
+    controlledVariables
   }
 
-  private val searchVariables = subNeighbourhoods.foldLeft(Array.empty[Variable])(
-    (acc, n) => acc ++ n.getSearchVariables).distinct
+  private val searchVariables = subNeighbourhoods.flatMap(_.getSearchVariables).distinct.toArray
 
   def getSearchVariables: Array[Variable] = {
-    searchVariables.toArray
+    searchVariables
   }
 
-  def getInitVariables(): Seq[Variable] = {
-    (initConstraints.flatMap(_.variables) ++ initVariables).distinct
+  private val allInitVariables = (initConstraints.flatMap(_.variables) ++ initVariables).distinct
+  def getInitVariables: Seq[Variable] = {
+    allInitVariables
   }
 }
 
@@ -53,19 +52,29 @@ class FZSubNeighbourhood(val name: String,
                          val ensureVariables: Array[Variable],
                          val ensureConstraints: List[Constraint]) {
 
-  private val controlledVariables = (moves.foldLeft(Array.empty[Variable])(
-    (acc, m) => acc ++ m.getControlledVariables) ++ itVariables ++ whereVariables ++ ensureVariables).distinct
+  private val controlledVariables =
+    (moves.flatMap(_.getControlledVariables) ++ itVariables ++ whereVariables ++ ensureVariables).distinct.toArray
 
-  def getControlledVariables: Array[Variable] = {
+  private val dependentVariables = (moves.flatMap(_.getDependentVariables) ++
+    whereConstraints.flatMap(_.getVariables) ++
+    ensureConstraints.flatMap(_.getVariables)
+    .distinct
+    .filterNot(v => ensureVariables.contains(v) || whereVariables.contains(v))).toArray
+
+  def getControlledAndDeclaredVariables: Array[Variable] = {
     controlledVariables
   }
 
-  private val searchVariables = moves.foldLeft(Array.empty[Variable])(
-    (acc, m) => acc ++ m.getControlledVariables).distinct
+  def getDependentVariables: Array[Variable] = {
+    dependentVariables
+  }
+
+  private val searchVariables = moves.flatMap(_.getControlledVariables).distinct.toArray
 
   def getSearchVariables: Array[Variable] = {
     searchVariables
   }
+
   def debugPrint = {
     println("------ Neighbourhood for " + name + " ------")
     println("Iterator variables: ")

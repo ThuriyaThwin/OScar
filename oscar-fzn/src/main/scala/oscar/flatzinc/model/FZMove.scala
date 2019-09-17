@@ -21,12 +21,17 @@ package oscar.flatzinc.model
   * @author Gustav Bjordal
   */
 abstract class FZMove {
-  def getControlledVariables:Array[Variable];
+  def getControlledVariables:Array[Variable]
+  def getDependentVariables:Array[Variable]
 }
 
 case class FZAssignMove(lhs: Variable, rhs: Variable) extends FZMove {
   override def getControlledVariables: Array[Variable] = {
     Array(lhs)
+  }
+
+  override def getDependentVariables: Array[Variable] = {
+    Array(rhs)
   }
 
   override def toString: String = {"Assign("+lhs+", "+rhs+")"}
@@ -36,14 +41,23 @@ case class FZAssignArrayMove(lhs: Array[Variable], index: Variable, rhs: Variabl
   override def getControlledVariables: Array[Variable] = {
     lhs
   }
+
+  override def getDependentVariables: Array[Variable] = {
+    Array(index,rhs)
+  }
   override def toString: String = {"AssignArray("+lhs.mkString("[",", ","]")+", "+index+", "+rhs+")"}
 
 }
 
 case class FZSwapMove(lhs: Variable, rhs: Variable) extends FZMove {
   override def getControlledVariables: Array[Variable] = {
-    Array(lhs)
+    Array(lhs,rhs)
   }
+
+  override def getDependentVariables: Array[Variable] = {
+    Array.empty
+  }
+
   override def toString: String = {"Swap("+lhs+", "+rhs+")"}
 
 }
@@ -52,6 +66,11 @@ case class FZSwapArrayMove(lhs: Array[Variable], leftIndex: Variable, rhs: Array
   override def getControlledVariables: Array[Variable] = {
     lhs ++ rhs
   }
+
+  override def getDependentVariables: Array[Variable] = {
+    Array(leftIndex,rightIndex)
+  }
+
   override def toString: String = {"SwapArray("+lhs.mkString("[",", ","]")+", "+leftIndex+", "+rhs.mkString("[",", ","]")+", "+rightIndex+")"}
 
 }

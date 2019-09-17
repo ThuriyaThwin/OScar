@@ -69,10 +69,8 @@ public class Type {
 			return false;
 		if (size != other.size)
 			return false;
-		if (typ != other.typ)
-			return false;
-		return true;
-	}
+        return typ == other.typ;
+    }
 	@Override
 	public String toString() {
 		return "Type [isArray=" + isArray + ", size=" + size + ", isVar="

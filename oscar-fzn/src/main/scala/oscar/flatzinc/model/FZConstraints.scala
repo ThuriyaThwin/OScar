@@ -23,12 +23,12 @@ package oscar.flatzinc.model
 
 abstract class Constraint(val variables: Array[Variable],val annotations: List[Annotation]) {
   for(v <- variables){
-    v.addConstraint(this);
+    v.addConstraint(this)
   }
   //Can be posted as an invariant
   def canDefineVar = false
   //The variables appearing in the constraint
-  def getVariables():Array[Variable] = variables
+  def getVariables:Array[Variable] = variables
   
   //The variables of the constraint which it can functionally define 
   //TODO generalize to arrays of defined variables (e.g. in sort/bin-packing)
@@ -38,42 +38,41 @@ abstract class Constraint(val variables: Array[Variable],val annotations: List[A
     candidates
   }
   //we filter out the variables that appear more than once in the constraint.
-  private def createCandidates()={
-    candidates = getMaybeCandidateDefVars().filter(v => variables.count(vv => v==vv)==1)
+  private def createCandidates(): Unit ={
+    candidates = getMaybeCandidateDefVars.filter(v => variables.count(vv => v==vv)==1)
   }
-  def getMaybeCandidateDefVars():Array[Variable] = Array.empty[Variable]
+  def getMaybeCandidateDefVars:Array[Variable] = Array.empty[Variable]
   //def simplify(p: FZProblem){}
   //The variable the constraint functionally defines
   //TODO: generalize to arrays of defined variables (e.g. in sort/bin-packing)
-  def setDefinedVar(v: Variable) = {
+  def setDefinedVar(v: Variable): Unit = {
       definedVars match {
       case None => v.definingConstraint match {
         case None =>
           //Make sure that this can indeed be defined. It might be that some annotations from fzn are wrong. We simply ignore those.
           if(getCandidateDefVars().contains(v)){
-            v.definingConstraint = Some(this);
-            definedVars = Some(v);
+            v.definingConstraint = Some(this)
+            definedVars = Some(v)
           }
           /*else{
             Console.err.println(v+" can not be defined by "+this)
           }*/
-        case Some(cc) =>
+        case Some(_) =>
           //Console.err.println(v +" is already defined by "+cc+". But "+this+" wants to define it as well. The second one is ignored.");
       }
-      case Some(vv) => throw new Exception("Not supported yet.")
+      case Some(_) => throw new Exception("Not supported yet.")
     }
   }
-  def unsetDefinedVar(v: Variable) = {
+  def unsetDefinedVar(v: Variable): Unit = {
     definedVars = definedVars match {
-      case Some(vv) if v==vv => {
+      case Some(vv) if v==vv =>
         v.definingConstraint = None
-        None  
-      }
+        None
       case _ => throw new Exception(v+" was not defined by "+this)
     }
   }
   private var definedVars = Option.empty[Variable]
-  def definedVar = definedVars
+  def definedVar: Option[Variable] = definedVars
   
   //True if the constraints annotations says that it defines x
   //def definesVar(x: Variable):Boolean = {annotations.foldLeft(false)((acc,y)=> (y.name == "defines_var" && y.args(0).asInstanceOf[ConcreteVariable].id == x.id ) || acc)}
@@ -87,7 +86,7 @@ abstract class Constraint(val variables: Array[Variable],val annotations: List[A
   }
   def insert(){
     for(v <- variables){
-       v.addConstraint(this);
+       v.addConstraint(this)
     }
   }
 }
@@ -95,56 +94,58 @@ abstract class Constraint(val variables: Array[Variable],val annotations: List[A
 abstract class SimpleDefiningConstraint(variables: Array[Variable], val maybeDefinedVar: Variable, ann:List[Annotation])
   extends Constraint(variables, ann){
   override def canDefineVar = true
-  override def getMaybeCandidateDefVars() = Array(maybeDefinedVar)
+  override def getMaybeCandidateDefVars = Array(maybeDefinedVar)
 }
 abstract class ReifiedConstraint(variables: Array[Variable], r: BooleanVariable, ann:List[Annotation]) extends SimpleDefiningConstraint(variables++Array(r),r,ann) {
 
 }
 
-case class reif(val c: Constraint,r: BooleanVariable) extends ReifiedConstraint(c.variables,r,c.annotations){
+case class reif(c: Constraint, r: BooleanVariable) extends ReifiedConstraint(c.variables, r, c.annotations){
   c.retract()
 }
 
 abstract class AllDefiningConstraint(variables: Array[Variable], ann:List[Annotation])
   extends Constraint(variables, ann){
   override def canDefineVar = true
-  override def getMaybeCandidateDefVars() = variables
+  override def getMaybeCandidateDefVars: Array[Variable] = variables
 }
 
 //TODO: Flatten the args into the array of variables
 case class GeneratedConstraint(name:String, args:List[Any],signature:List[Pattern]) extends Constraint(GC.flatten(args), List.empty[Annotation])
 case class GenericConstraint(name:String, args:List[Any], ann: List[Annotation]) extends Constraint(GC.flatten(args), ann)
 object GC{
-  def flatten(args: List[Any]): Array[Variable] = {
-    args.flatMap(_ match{
-      case v:Variable => List(v) 
-      case vs:Array[Variable] => vs
-      case d:FzDomain => List.empty[Variable]
-    }).toArray
-  }
+  def flatten(args: List[Any]): Array[Variable] = args.flatMap(_ match{
+    case v:Variable => List(v)
+    case vs:Array[Variable] => vs
+    case d:FzDomain => List.empty[Variable]
+  }).toArray
 }
 // ----------------------------------
 
 case class array_bool_and(as: Array[BooleanVariable], r: BooleanVariable, ann: List[Annotation] = List.empty[Annotation]) 
-  extends SimpleDefiningConstraint(as++Array(r),r,ann);
+  extends SimpleDefiningConstraint(as++Array(r),r,ann){
+  override def toString: String ={"array_bool_and(" + as.mkString("[", ",", "]") +"," + r +"," + ann +")"}
+}
 
 //Here, the "as" are NOT Variables, but Constants!
 case class array_bool_element(b: IntegerVariable, as: Array[BooleanVariable], c: BooleanVariable, ann: List[Annotation]) 
-  extends SimpleDefiningConstraint(Array(b,c),c,ann);
+  extends SimpleDefiningConstraint(Array(b,c),c,ann){
+  override def toString: String ={"array_bool_element(" + b + "," + as.mkString("[", ",", "]") +"," + c +"," + ann +")"}
+}
   
 case class array_bool_or(as: Array[BooleanVariable], r: BooleanVariable, ann: List[Annotation] = List.empty[Annotation]) 
   extends SimpleDefiningConstraint(as++Array(r),r,ann){
-  //override def toString() ={"array_bool_or("+as.mkString("[", ",", "]")+","+r+","+ann+")"}
+  override def toString: String ={"array_bool_or(" + as.mkString("[", ",", "]") +"," + r +"," + ann +")"}
 }
 case class array_int_element(b: IntegerVariable, as: Array[IntegerVariable], c: IntegerVariable, ann: List[Annotation] = List.empty[Annotation]) 
-  extends SimpleDefiningConstraint(Array(b,c),c,ann);
+  extends SimpleDefiningConstraint(Array(b,c),c,ann)
 
 case class array_var_bool_element(b: IntegerVariable, as: Array[BooleanVariable], c: BooleanVariable, ann: List[Annotation] = List.empty[Annotation])
-  extends SimpleDefiningConstraint(as++Array(b,c),c,ann);
+  extends SimpleDefiningConstraint(as++Array(b,c),c,ann)
 
 case class array_var_int_element(b: IntegerVariable, as: Array[IntegerVariable], c: IntegerVariable, ann: List[Annotation] = List.empty[Annotation])
   extends SimpleDefiningConstraint(as++Array(b,c),c,ann){
-  override def toString() ={"array_var_int_element("+b+","+as.mkString("[", ", ", "]")+","+c+","+ann+")"}
+  override def toString: String ={"array_var_int_element(" + b +"," + as.mkString("[", ", ", "]") +"," + c +"," + ann +")"}
 }
 
 case class array_bool_xor(as: Array[BooleanVariable], ann: List[Annotation] = List.empty[Annotation]) 
@@ -154,11 +155,11 @@ case class bool2int(b: BooleanVariable, x: IntegerVariable, ann: List[Annotation
   extends AllDefiningConstraint(Array(b,x),ann)
 
 case class bool_and(a: BooleanVariable, b: BooleanVariable, r: BooleanVariable, ann: List[Annotation] = List.empty[Annotation]) 
-  extends SimpleDefiningConstraint(Array(a,b,r),r,ann);
+  extends SimpleDefiningConstraint(Array(a,b,r),r,ann)
   
 case class bool_clause(a: Array[BooleanVariable], b: Array[BooleanVariable], ann: List[Annotation] = List.empty[Annotation]) 
   extends Constraint(a++b,ann){
-  override def toString() ={"bool_clause("+a.mkString("[", ", ", "]")+","+b.mkString("[", ", ", "]")+","+ann+")"}
+  override def toString: String ={"bool_clause(" + a.mkString("[", ", ", "]") +"," + b.mkString("[", ", ", "]") +"," + ann +")"}
 }
 
 case class bool_eq(x: BooleanVariable, y: BooleanVariable, ann: List[Annotation] = List.empty[Annotation]) 
@@ -169,13 +170,15 @@ case class bool_le(a: BooleanVariable, b: BooleanVariable, ann: List[Annotation]
 
 case class bool_lin_eq(params:Array[IntegerVariable],vars:Array[BooleanVariable], sum:IntegerVariable, ann: List[Annotation] = List.empty[Annotation]) 
   extends Constraint(vars++Array.empty[Variable],ann){
-  override def canDefineVar = true
-  override def getMaybeCandidateDefVars():Array[Variable] = Array(sum)
-  override def toString() ={"bool_lin_eq("+params.mkString("[", ", ", "]")+","+vars.mkString("[", ", ", "]")+","+sum+","+ann+")"}
+  override def canDefineVar:Boolean = true
+  override def getMaybeCandidateDefVars:Array[Variable] = Array(sum)
+  override def toString:String ={"bool_lin_eq(" + params.mkString("[", ", ", "]") +"," + vars.mkString("[", ", ", "]") +"," + sum +"," + ann +")"}
 }
 
 case class bool_lin_le(params:Array[IntegerVariable],vars:Array[BooleanVariable], sum:IntegerVariable, ann: List[Annotation] = List.empty[Annotation]) 
-  extends Constraint(vars++Array.empty[Variable],ann)
+  extends Constraint(vars++Array.empty[Variable],ann){
+  override def toString:String ={"bool_lin_le(" + params.mkString("[", ", ", "]") +"," + vars.mkString("[", ", ", "]") +"," + sum +"," + ann +")"}
+}
 
 case class bool_lt(a: BooleanVariable, b: BooleanVariable, ann: List[Annotation] = List.empty[Annotation]) 
   extends Constraint(Array(a,b),ann)
@@ -204,20 +207,26 @@ case class int_le(a: IntegerVariable, b: IntegerVariable, ann: List[Annotation] 
 case class int_lin_eq(params:Array[IntegerVariable],vars:Array[IntegerVariable], sum:IntegerVariable, ann: List[Annotation] = List.empty[Annotation]) 
   extends Constraint(vars++Array(sum),ann){
   override def canDefineVar = true
-  override def getMaybeCandidateDefVars():Array[Variable]  = {
-    return vars.zip(params).filter((t) => Math.abs(t._2.min) == 1 && t._1.domainSize >= 1).map(_._1)
+  override def getMaybeCandidateDefVars:Array[Variable]  = {
+    vars.zip(params).filter(t => Math.abs(t._2.min) == 1 && t._1.domainSize >= 1).map(_._1)
   }
-  override def toString() ={"int_lin_eq("+params.mkString("[", ", ", "]")+","+vars.mkString("[", ", ", "]")+","+sum+","+ann+")"}
+  override def toString: String ={"int_lin_eq(" + params.mkString("[", ", ", "]") +"," + vars.mkString("[", ", ", "]") +"," + sum +"," + ann +")"}
 }
 
 case class int_lin_le(params:Array[IntegerVariable],vars:Array[IntegerVariable], sum:IntegerVariable, ann: List[Annotation] = List.empty[Annotation]) 
-  extends Constraint(vars++Array.empty[Variable],ann)
+  extends Constraint(vars++Array.empty[Variable],ann){
+  override def toString: String ={"int_lin_le(" + params.mkString("[", ", ", "]") +"," + vars.mkString("[", ", ", "]") +"," + sum +"," + ann +")"}
+}
 
 case class int_lin_gt(params:Array[IntegerVariable],vars:Array[IntegerVariable], sum:IntegerVariable, ann: List[Annotation] = List.empty[Annotation])
-  extends Constraint(vars++Array.empty[Variable],ann)
+  extends Constraint(vars++Array.empty[Variable],ann){
+  override def toString: String ={"int_lin_gt(" + params.mkString("[", ", ", "]") +"," + vars.mkString("[", ", ", "]") +"," + sum +"," + ann +")"}
+}
 
 case class int_lin_ne(params:Array[IntegerVariable],vars:Array[IntegerVariable], sum:IntegerVariable, ann: List[Annotation] = List.empty[Annotation]) 
-  extends Constraint(vars++Array.empty[Variable],ann)
+  extends Constraint(vars++Array.empty[Variable],ann){
+  override def toString: String ={"int_lin_ne(" + params.mkString("[", ", ", "]") +"," + vars.mkString("[", ", ", "]") +"," + sum +"," + ann +")"}
+}
 
 case class int_lt(a: IntegerVariable, b: IntegerVariable, ann: List[Annotation] = List.empty[Annotation]) 
   extends Constraint(Array(a,b),ann)
@@ -249,7 +258,7 @@ case class set_in(x: IntegerVariable, s: FzDomain, ann: List[Annotation] = List.
 
 case class all_different_int(xs: Array[IntegerVariable], ann: List[Annotation] = List.empty[Annotation]) 
   extends Constraint(xs++Array.empty[Variable],ann){
-  override def toString() = {"all_different_int(" +xs.mkString("[",", ","]") + ") :: " + ann.mkString(" :: ")}
+  override def toString: String = {"all_different_int(" + xs.mkString("[", ", ", "]") + ") :: " + ann.mkString(" :: ")}
 }
 
 

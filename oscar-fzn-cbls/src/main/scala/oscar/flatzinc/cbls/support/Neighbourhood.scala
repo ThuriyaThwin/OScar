@@ -24,8 +24,7 @@ import oscar.cbls.core.objective.{Objective => CBLSObjective}
 import oscar.cbls.lib.invariant.logic.Cluster
 import oscar.cbls.lib.invariant.set.Cardinality
 import oscar.cbls.lib.search.LinearSelectors
-import oscar.cbls.modeling.CBLSModel
-import oscar.flatzinc.cbls.{FZCBLSConstraintPoster, FZCBLSImplicitConstraints, FZCBLSModel}
+import oscar.flatzinc.cbls.FZCBLSModel
 import oscar.flatzinc.cp.FZCPBasicModel
 import oscar.flatzinc.model._
 
@@ -1002,7 +1001,7 @@ class FlatNeighbourhood(val fzNeighbourhood: FZNeighbourhood,
   val subNeighbourhoods = subNeighbourhoodConstructors.map(_(objective,cblsModel.c))
 
   val initCPModel = new FZCPBasicModel()
-  initCPModel.createVariables(fzNeighbourhood.getInitVariables())
+  initCPModel.createVariables(fzNeighbourhood.getInitVariables)
   initCPModel.createConstraints(fzNeighbourhood.initConstraints)
 
 

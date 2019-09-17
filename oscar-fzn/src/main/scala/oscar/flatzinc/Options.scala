@@ -84,10 +84,7 @@ class Options(name: String, cbls: Boolean, args: Array[String]) {
         useCP = args(i+1).toBoolean
         i += 1
       } else if (oneOf("-f")) {
-        freeSearch = true
-      }else if (oneOf("-p")) {
-        println("% -p flag not supported, ignoring.")
-        i += 1
+        freeSearch = true;
       }else if (oneOf("-vl", "--verbose-level")) {
         verbose = args(i+1).toInt
         i += 1
@@ -98,7 +95,7 @@ class Options(name: String, cbls: Boolean, args: Array[String]) {
         quietMode = true
       } else {
         println(progName+": not recognized option " + args(i))
-        help = true
+        help = true;
       }
       i+=1
     }

@@ -20,9 +20,9 @@ package oscar.flatzinc.cp
 import oscar.flatzinc._
 
 object FznOscarCP extends FznOscarMain {
-  checkAntlr()   
+  checkAntlr()
   withCheck{
     val opts = options("fzn-oscar-cp",cbls=false)
-	new FZCPSolver().solve(opts)
+	new FZCPLSSolver().solve(opts)
   }
 }

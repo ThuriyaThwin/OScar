@@ -31,6 +31,8 @@ abstract class Variable(val id: String, val anns: Iterable[oscar.flatzinc.model.
   def isDefined: Boolean = {
     definingConstraint.isDefined//annotations.foldLeft(false)((acc,x) => x.name=="is_defined_var" || acc)
   }
+  val isIntroduced = anns.exists(_.name=="var_is_introduced")
+  
   var definingConstraint: Option[Constraint] = Option.empty[Constraint]
   var cstrs:Set[Constraint] = Set.empty[Constraint]
   def addConstraint(c:Constraint) = {
@@ -65,7 +67,7 @@ case class BooleanVariable(i: String,
   def boolValue: Boolean = _value.get
   def intValue: Int = if(_value.get) 1 else 0
   def violValue: Int = if(_value.get) 0 else 1 // true (0), false (1)
-  override def toString = {this.id + (if(isBound) "="+_value.get else "") /*+ (if(!anns.isEmpty) " :: " + anns.mkString(" :: ") else "" )*/}
+  override def toString = {this.id + (if(isBound) "="+_value.get else "") /*+ (if(!completeStrategy.isEmpty) " :: " + completeStrategy.mkString(" :: ") else "" )*/}
 
 
   override def setDomain(range: Range): Unit = {
@@ -128,7 +130,7 @@ case class IntegerVariable(i: String,
   override def isBound: Boolean = min == max
   def bind(v: Int) = {geq(v); leq(v);}
   def value:Int = {if(isBound) min else throw new Exception("Asking for the value of an unbound variable")}
-  override def toString = {this.id + (if(isBound) "="+value else "") /*+ (if(!anns.isEmpty) " :: " +  anns.mkString(" :: ") else "" )*/}
+  override def toString = {this.id + (if(isBound) "="+value else "") /*+ (if(!completeStrategy.isEmpty) " :: " +  completeStrategy.mkString(" :: ") else "" )*/}
 
 
 

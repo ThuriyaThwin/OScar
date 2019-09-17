@@ -23,13 +23,12 @@ import oscar.cbls.core.constraint.ConstraintSystem
 import oscar.cbls.core.objective.{Objective => CBLSObjective}
 import oscar.cbls.lib.search.LinearSelectors
 import oscar.cbls.util.StopWatch
-import oscar.flatzinc.{Log, NoSuchConstraintException, Options}
 import oscar.flatzinc.cbls.support._
 import oscar.flatzinc.cp.FZCPModel
-import oscar.flatzinc.model.{Constraint, Variable, _}
+import oscar.flatzinc.model.{Constraint, _}
 import oscar.flatzinc.parser.FZParser
 import oscar.flatzinc.transformation.FZModelTransformations
-import oscar.flatzinc.cbls.support.Helpers._
+import oscar.flatzinc.{Log, NoSuchConstraintException, Options}
 
 
 class FZCBLSBuilder extends LinearSelectors with StopWatch {
@@ -377,8 +376,8 @@ class FZCBLSBuilder extends LinearSelectors with StopWatch {
     log("Posted " + softConstraints.length + " Soft Constraints")
     Helper.getCstrsByName(softConstraints).map
     { case (n: String, l: List[Constraint]) => l.length + "\t" + n }.toList.sorted.foreach(s => log(" " + s))
-    log(softConstraints.filter(c => c.getVariables().forall(v => !v.isDefined)).size + " are only on search variables.")
-    log(softConstraints.filter(c => c.getVariables().forall(v => v.isDefined)).size + " are only on defined variables.")
+    log(softConstraints.filter(c => c.getVariables.forall(v => !v.isDefined)).size + " are only on search variables.")
+    log(softConstraints.filter(c => c.getVariables.forall(v => v.isDefined)).size + " are only on defined variables.")
   }
 
   def postInvariants(cblsmodel: FZCBLSModel, poster: FZCBLSConstraintPoster, invariants: List[Constraint],
@@ -496,9 +495,9 @@ class FZCBLSBuilder extends LinearSelectors with StopWatch {
       log("Reduced Domains")
     }
     model.constraints.foreach(c => {
-      if (c.getVariables().length <= 1) {
+      if (c.getVariables.length <= 1) {
         log("Remaining Unary Constraint " + c)
-      } else if (c.getVariables().filter(v => !v.isBound).length <= 1) {
+      } else if (c.getVariables.filter(v => !v.isBound).length <= 1) {
         log("De facto Unary Constraint " + c);
         //log(2,c.getVariables().map(v => v.min+".."+v.max).mkString(" , "))
       }
