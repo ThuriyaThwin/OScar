@@ -1,4 +1,4 @@
-package oscar.cbls.business.routing.neighborhood.vlsn
+package oscar.cbls.lib.search.vlsn
 
 import oscar.cbls.algo.magicArray.MagicBoolArray
 
